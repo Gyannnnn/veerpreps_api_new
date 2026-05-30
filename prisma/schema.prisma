@@ -1,0 +1,256 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// university
+
+model Institute {
+  id      String @id @default(uuid())
+  name    String @unique
+  logo    String
+  address String
+  slug    String @unique
+  about   String
+
+  branches Branch[]
+  students User[]
+  subjects Subject[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String
+
+  @@index([logo, name])
+}
+
+// branch and subjects
+
+model Branch {
+  id           String @id @default(uuid())
+  name         String @unique
+  branchCode   String @unique
+  institute_id String
+
+  users    User[]
+  subjects BranchSubject[]
+
+  institute Institute @relation(fields: [institute_id], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String
+
+  @@index([name, branchCode])
+}
+
+model Subject {
+  id             String         @id @default(uuid())
+  name           String
+  subjectCode    String
+  semester       Int
+  yearOfTeaching YearOfTeaching
+  slug           String
+
+  instituteId String
+
+  institute      Institute       @relation(fields: [instituteId], references: [id])
+  branches       BranchSubject[]
+  studyMaterials StudyMaterial[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String
+
+  @@unique([name, instituteId, semester])
+  @@index([name, semester, yearOfTeaching])
+}
+
+model BranchSubject {
+  id        String @id @default(uuid())
+  branchId  String
+  subjectId String
+
+  branch  Branch  @relation(fields: [branchId], references: [id])
+  subject Subject @relation(fields: [subjectId], references: [id])
+
+  @@unique([branchId, subjectId])
+  @@index([branchId, subjectId])
+}
+
+// user
+
+model User {
+  id             String          @id @default(uuid())
+  name           String
+  email          String          @unique
+  verified       Boolean         @default(false)
+  avatar         String?
+  password       String?
+  savedMaterials SavedMaterial[]
+  year           YearOfTeaching?
+  instgramLink   String?
+  linkedInLink   String?
+  faceBookLink   String?
+  githubLink     String?
+  websiteLink    String?
+  createdAt      DateTime        @default(now())
+  isDeleted      Boolean         @default(false)
+  updatedAt      DateTime        @updatedAt
+  deletedAt      DateTime?
+
+  userType Users @default(student)
+
+  branchId     String?
+  branch       Branch?          @relation(fields: [branchId], references: [id])
+  institute_id String
+  institute    Institute        @relation(fields: [institute_id], references: [id])
+  uploads      StudyMaterial[]
+  buckets      UserBucket[]
+  reports      MaterialReport[]
+
+  @@index([name, year])
+}
+
+model UserBucket {
+  id          String           @id @default(uuid())
+  title       String
+  slug        String           @unique
+  description String?
+  visibility  visibility
+  views       Int              @default(0)
+  likesCount  Int              @default(0)
+  creatorId   String
+  creator     User             @relation(fields: [creatorId], references: [id])
+  materials   BucketMaterial[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  isDeleted   Boolean          @default(false)
+  deletedAt   DateTime?
+
+  @@index([title, visibility, creatorId, likesCount])
+}
+
+model BucketMaterial {
+  id              String @id @default(uuid())
+  bucketId        String
+  studyMaterialId String
+
+  bucket        UserBucket    @relation(fields: [bucketId], references: [id], onDelete: Cascade)
+  studyMaterial StudyMaterial @relation(fields: [studyMaterialId], references: [id], onDelete: Cascade)
+
+  addedAt DateTime @default(now())
+
+  @@unique([bucketId, studyMaterialId])
+  @@index([studyMaterialId])
+}
+
+// study materials 
+
+model StudyMaterial {
+  id            String         @id @default(uuid())
+  name          String
+  type          materialType
+  link          String
+  subjectId     String
+  year          Int
+  likes         Int            @default(0)
+  uploadedAt    DateTime       @default(now())
+  description   String?
+  uploaderId    String
+  status        MaterialStatus @default(pending)
+  isDeleted     Boolean        @default(false)
+  deletedAt     DateTime?
+  downloadCount Int            @default(0)
+  fileHash      String         @unique
+  mimeType      String?
+  fileSize      Int?
+  updatedAt     DateTime       @updatedAt
+
+  subject    Subject @relation(fields: [subjectId], references: [id])
+  uploadedBy User    @relation(fields: [uploaderId], references: [id])
+
+  buckets        BucketMaterial[]
+  savedMaterials SavedMaterial[]
+  reports        MaterialReport[]
+
+  @@index([subjectId, type, year])
+  @@index([uploadedAt])
+  @@index([name])
+}
+
+model MaterialReport {
+  id String @id @default(uuid())
+
+  reason String
+
+  reporterId String
+  materialId String
+
+  reporter User @relation(fields: [reporterId], references: [id])
+
+  material StudyMaterial @relation(fields: [materialId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([reporterId, materialId])
+}
+
+model SavedMaterial {
+  id              String   @id @default(uuid())
+  userId          String
+  studyMaterialId String
+  savedAt         DateTime @default(now())
+
+  user          User          @relation(fields: [userId], references: [id])
+  studyMaterial StudyMaterial @relation(fields: [studyMaterialId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, studyMaterialId])
+  @@index([studyMaterialId])
+  @@index([userId, studyMaterialId])
+}
+
+// enumerations 
+
+enum Users {
+  admin
+  teacher
+  student
+}
+
+enum YearOfTeaching {
+  first_year
+  second_year
+  third_year
+  fourth_year
+  fifth_year
+  sixth_year
+  seventh_year
+  eighth_year
+}
+
+enum materialType {
+  pyq
+  notes
+  syllabus
+  assignment
+  lab_record
+}
+
+enum MaterialStatus {
+  pending
+  approved
+  rejected
+}
+
+enum visibility {
+  public
+  private
+  unlisted
+}
