@@ -14,6 +14,7 @@ import morgan from "morgan"
 // file imports
 import authRouter from "./routes/auth/auth.routes.js";
 import userRouter from "./routes/user/user.routes.js";
+import { errorHandler } from "./middlewares/error/errorHandler.middleware.js";
 
 
 
@@ -47,6 +48,10 @@ app.use(morgan("dev"))
 // routings
 app.use("/api/v1/auth",authRouter)
 app.use("/api/v1/user",userRouter)
+
+
+
+app.use(errorHandler)
 
 
 
