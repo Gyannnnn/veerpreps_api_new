@@ -1,117 +1,118 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
 }
 
-// university
-
 model Institute {
-  id      String @id @default(uuid())
-  name    String @unique
-  logo    String
-  address String
-  slug    String @unique
-  about   String
-
-  branches Branch[]
-  students User[]
-  subjects Subject[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  createdBy String
+  id         String            @id @default(uuid())
+  name       String
+  logo       String
+  address    String
+  slug       String            @unique
+  about      String
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  approvedBy String?
+  createdBy  String
+  status     InstituteStatus   @default(pending)
+  branches   Branch[]
+  reviews    InstituteReview[]
+  subjects   Subject[]
+  students   User[]
 
   @@index([logo, name])
 }
 
-// branch and subjects
+model InstituteReview {
+  id           String          @id @default(uuid())
+  instituteId  String
+  reviewedById String
+  status       InstituteStatus
+  reason       String
+  reviewedAt   DateTime        @default(now())
+  institute    Institute       @relation(fields: [instituteId], references: [id])
+  reviewedBy   User            @relation(fields: [reviewedById], references: [id])
+}
 
 model Branch {
-  id           String @id @default(uuid())
-  name         String @unique
-  branchCode   String @unique
-  institute_id String
+  id          String          @id @default(uuid())
+  name        String
+  branchCode  String
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  createdBy   String
+  instituteId String
+  institute   Institute       @relation(fields: [instituteId], references: [id])
+  subjects    BranchSubject[]
+  users       User[]
 
-  users    User[]
-  subjects BranchSubject[]
-
-  institute Institute @relation(fields: [institute_id], references: [id])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  createdBy String
-
+  @@unique([instituteId, branchCode])
+  @@unique([instituteId, name])
   @@index([name, branchCode])
 }
 
 model Subject {
-  id             String         @id @default(uuid())
+  id             String          @id @default(uuid())
   name           String
   subjectCode    String
   semester       Int
   yearOfTeaching YearOfTeaching
   slug           String
-
-  instituteId String
-
-  institute      Institute       @relation(fields: [instituteId], references: [id])
+  instituteId    String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  createdBy      String
   branches       BranchSubject[]
   studyMaterials StudyMaterial[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  createdBy String
+  institute      Institute       @relation(fields: [instituteId], references: [id])
 
   @@unique([name, instituteId, semester])
+  @@unique([slug, instituteId])
+  @@unique([subjectCode, instituteId])
   @@index([name, semester, yearOfTeaching])
 }
 
 model BranchSubject {
-  id        String @id @default(uuid())
+  id        String  @id @default(uuid())
   branchId  String
   subjectId String
-
-  branch  Branch  @relation(fields: [branchId], references: [id])
-  subject Subject @relation(fields: [subjectId], references: [id])
+  branch    Branch  @relation(fields: [branchId], references: [id])
+  subject   Subject @relation(fields: [subjectId], references: [id])
 
   @@unique([branchId, subjectId])
   @@index([branchId, subjectId])
 }
 
-// user
-
 model User {
-  id             String          @id @default(uuid())
-  name           String
-  email          String          @unique
-  verified       Boolean         @default(false)
-  avatar         String?
-  password       String?
-  savedMaterials SavedMaterial[]
-  year           YearOfTeaching?
-  instgramLink   String?
-  linkedInLink   String?
-  faceBookLink   String?
-  githubLink     String?
-  websiteLink    String?
-  createdAt      DateTime        @default(now())
-  isDeleted      Boolean         @default(false)
-  updatedAt      DateTime        @updatedAt
-  deletedAt      DateTime?
-
-  userType Users @default(student)
-
-  branchId     String?
-  branch       Branch?          @relation(fields: [branchId], references: [id])
-  institute_id String
-  institute    Institute        @relation(fields: [institute_id], references: [id])
-  uploads      StudyMaterial[]
-  buckets      UserBucket[]
-  reports      MaterialReport[]
+  id               String            @id @default(uuid())
+  email            String            @unique
+  password         String?
+  name             String
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  avatar           String?
+  branchId         String?
+  deletedAt        DateTime?
+  faceBookLink     String?
+  githubLink       String?
+  instgramLink     String?
+  isDeleted        Boolean           @default(false)
+  linkedInLink     String?
+  userType         Users             @default(student)
+  verified         Boolean           @default(false)
+  websiteLink      String?
+  year             YearOfTeaching?
+  instituteId      String?
+  instituteReviews InstituteReview[]
+  reports          MaterialReport[]
+  savedMaterials   SavedMaterial[]
+  uploads          StudyMaterial[]
+  branch           Branch?           @relation(fields: [branchId], references: [id])
+  institute        Institute?        @relation(fields: [instituteId], references: [id])
+  buckets          UserBucket[]
 
   @@index([name, year])
 }
@@ -125,58 +126,52 @@ model UserBucket {
   views       Int              @default(0)
   likesCount  Int              @default(0)
   creatorId   String
-  creator     User             @relation(fields: [creatorId], references: [id])
-  materials   BucketMaterial[]
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
   isDeleted   Boolean          @default(false)
   deletedAt   DateTime?
+  materials   BucketMaterial[]
+  creator     User             @relation(fields: [creatorId], references: [id])
 
   @@index([title, visibility, creatorId, likesCount])
 }
 
 model BucketMaterial {
-  id              String @id @default(uuid())
+  id              String        @id @default(uuid())
   bucketId        String
   studyMaterialId String
-
-  bucket        UserBucket    @relation(fields: [bucketId], references: [id], onDelete: Cascade)
-  studyMaterial StudyMaterial @relation(fields: [studyMaterialId], references: [id], onDelete: Cascade)
-
-  addedAt DateTime @default(now())
+  addedAt         DateTime      @default(now())
+  bucket          UserBucket    @relation(fields: [bucketId], references: [id], onDelete: Cascade)
+  studyMaterial   StudyMaterial @relation(fields: [studyMaterialId], references: [id], onDelete: Cascade)
 
   @@unique([bucketId, studyMaterialId])
   @@index([studyMaterialId])
 }
 
-// study materials 
-
 model StudyMaterial {
-  id            String         @id @default(uuid())
-  name          String
-  type          materialType
-  link          String
-  subjectId     String
-  year          Int
-  likes         Int            @default(0)
-  uploadedAt    DateTime       @default(now())
-  description   String?
-  uploaderId    String
-  status        MaterialStatus @default(pending)
-  isDeleted     Boolean        @default(false)
-  deletedAt     DateTime?
-  downloadCount Int            @default(0)
-  fileHash      String         @unique
-  mimeType      String?
-  fileSize      Int?
-  updatedAt     DateTime       @updatedAt
-
-  subject    Subject @relation(fields: [subjectId], references: [id])
-  uploadedBy User    @relation(fields: [uploaderId], references: [id])
-
+  id             String           @id @default(uuid())
+  name           String
+  type           materialType
+  link           String
+  subjectId      String
+  year           Int
+  likes          Int              @default(0)
+  uploadedAt     DateTime         @default(now())
+  description    String?
+  uploaderId     String
+  status         MaterialStatus   @default(pending)
+  isDeleted      Boolean          @default(false)
+  deletedAt      DateTime?
+  downloadCount  Int              @default(0)
+  fileHash       String           @unique
+  mimeType       String?
+  fileSize       Int?
+  updatedAt      DateTime         @updatedAt
   buckets        BucketMaterial[]
-  savedMaterials SavedMaterial[]
   reports        MaterialReport[]
+  savedMaterials SavedMaterial[]
+  subject        Subject          @relation(fields: [subjectId], references: [id])
+  uploadedBy     User             @relation(fields: [uploaderId], references: [id])
 
   @@index([subjectId, type, year])
   @@index([uploadedAt])
@@ -184,39 +179,30 @@ model StudyMaterial {
 }
 
 model MaterialReport {
-  id String @id @default(uuid())
-
-  reason String
-
+  id         String        @id @default(uuid())
+  reason     String
   reporterId String
   materialId String
-
-  reporter User @relation(fields: [reporterId], references: [id])
-
-  material StudyMaterial @relation(fields: [materialId], references: [id])
-
-  createdAt DateTime @default(now())
+  createdAt  DateTime      @default(now())
+  material   StudyMaterial @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  reporter   User          @relation(fields: [reporterId], references: [id], onDelete: Cascade)
 
   @@unique([reporterId, materialId])
 }
 
 model SavedMaterial {
-  id              String   @id @default(uuid())
+  id              String        @id @default(uuid())
   userId          String
   studyMaterialId String
-  savedAt         DateTime @default(now())
-
-  user          User          @relation(fields: [userId], references: [id])
-  studyMaterial StudyMaterial @relation(fields: [studyMaterialId], references: [id])
-
-  createdAt DateTime @default(now())
+  savedAt         DateTime      @default(now())
+  createdAt       DateTime      @default(now())
+  studyMaterial   StudyMaterial @relation(fields: [studyMaterialId], references: [id])
+  user            User          @relation(fields: [userId], references: [id])
 
   @@unique([userId, studyMaterialId])
   @@index([studyMaterialId])
   @@index([userId, studyMaterialId])
 }
-
-// enumerations 
 
 enum Users {
   admin
@@ -253,4 +239,10 @@ enum visibility {
   public
   private
   unlisted
+}
+
+enum InstituteStatus {
+  pending
+  approved
+  rejected
 }
